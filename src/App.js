@@ -1,14 +1,15 @@
-import logo from './logo.svg';
-import './App.css';
-import Layout from './Layout';
+import React from 'react';
+import GoogleCSE from './GoogleCSE';
 
-function App() {
+const App = () => {
+  const cseId = 'c780d0e0a72ae4d69'; // Replace with your actual Custom Search Engine ID
+
   return (
     <div>
-    <h1>Multiple Interface Browser</h1>
-    <Layout />
-  </div>
+      <h1>My Custom Search</h1>
+      <GoogleCSE cx={cseId} />
+    </div>
   );
-}
+};
 
 export default App;

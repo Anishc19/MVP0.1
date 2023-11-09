@@ -8,6 +8,7 @@ const IframeComponent = ({ src }) => {
       height="500px"
       style={{ border: 'none' }}
       title="iframe"
+      sandbox="allow-forms allow-scripts allow-same-origin"
     />
   );
 };
