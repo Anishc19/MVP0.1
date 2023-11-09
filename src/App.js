@@ -1,15 +1,15 @@
 import React from 'react';
-import GoogleCSE from './GoogleCSE';
+import ContentFetcher from './ContentFetcher'; // Adjust the path as necessary for your project structure
 
-const App = () => {
-  const cseId = 'c780d0e0a72ae4d69'; // Replace with your actual Custom Search Engine ID
-
+function App() {
   return (
-    <div>
-      <h1>My Custom Search</h1>
-      <GoogleCSE cx={cseId} />
+    <div className="App">
+      <header className="App-header">
+        {/* <h1>Content Fetcher</h1> */}
+      </header>
+      <ContentFetcher />
     </div>
   );
-};
+}
 
 export default App;
