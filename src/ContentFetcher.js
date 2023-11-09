@@ -105,13 +105,32 @@ class ContentFetcher extends Component {
     cleanRedirectUrl(urlString) {
         console.log("--------------------");
         console.log("Cleaning Redirect URL: " + urlString);
-        console.log("Current URL: " + this.state.url);
-        const urlParts = this.splitUrl(urlString);
-        // load in the current url
+        let baseUrl = this.state.url;
+        console.log("Current URL: " + baseUrl);
+        const redirectParts = this.splitUrl(urlString);
+        const urlParts = this.splitUrl(baseUrl);
 
-        // Naive implementation, simply append the redirect url to the current url
-        return this.state.url + urlString;
-        
+        for (let redirectID = 1; redirectID < redirectParts.length; redirectID++) {
+            for (let urlID = 1; urlID < urlParts.length; urlID++) {
+                if (redirectParts[redirectID] === urlParts[urlID]) {
+                    const baseUrlParts = urlParts.slice(0, urlID);
+                    console.log("Base URL Parts: " + baseUrlParts);
+                    baseUrl = baseUrlParts.join('/');
+                    baseUrl += urlString;
+                    console.log("Cleaned Redirect URL: " + baseUrl);
+                    console.log("--------------------");
+                    return baseUrl;      
+                }
+            }
+        }
+
+        // that means we didn't find a match, so lets just append the redirect url to the current url
+        baseUrl += urlString;
+        console.log("Cleaned Redirect URL: " + baseUrl);
+        console.log("--------------------");
+        return baseUrl;
+
+        // throw new Error('Failed to clean redirect URL');  
     }
 
 
