@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import * as urlHelpers from './urlHelpers';
 
 class ContentFetcher extends Component {
     constructor(props) {
@@ -25,7 +26,6 @@ class ContentFetcher extends Component {
 
         document.removeEventListener('click', this.handleDocumentClick);
     }
-
     
 
     attachClickListener = () => {
@@ -42,98 +42,6 @@ class ContentFetcher extends Component {
         }
     };
 
-    splitUrl(urlString) {
-        return urlString.split('/');
-    }
-
-    isUrl(urlString) {
-        const urlParts = this.splitUrl(urlString);
-        if (urlParts[0] === 'http:' || urlParts[0] === 'https:') {
-            return true;
-        }
-    }
-
-    isSearchUrl(urlString) {
-        const urlParts = this.splitUrl(urlString);
-        if (urlParts[0] === '' && ((urlParts[1] === 'url?q=https:' || urlParts[1] === 'url?q=http:'))) {
-            return true;
-        }
-    }
-
-    isRedirectUrl(urlString) {
-        const urlParts = this.splitUrl(urlString);
-        if (urlParts[0] === '') {
-            return true;
-        }
-    }
-
-
-    cleanSearchUrl(urlString) {
-        console.log("--------------------");
-        console.log("Cleaning Search URL: " + urlString);
-
-        // Create an anchor element to use the browser's built-in URL parsing.
-        const a = document.createElement('a');
-        a.href = urlString;
-        
-        // Search parameters are everything after '?' in the URL.
-        const searchParams = new URLSearchParams(a.search);
-        
-        // Google's redirect URL parameters to remove.
-        const googleParams = ['sa', 'ved', 'usg'];
-        
-        // Remove Google's redirect URL parameters.
-        googleParams.forEach(param => searchParams.delete(param));
-        
-        // Reconstruct the URL without the Google redirect parameters.
-        let cleanUrl = a.origin + a.pathname;
-        if (searchParams.toString()) {
-            cleanUrl += '?' + searchParams.toString();
-        }
-        
-        // Decode URL-encoded characters.
-        cleanUrl = decodeURIComponent(cleanUrl);
-
-        // Remove the localhost:3000 prefix
-        cleanUrl = cleanUrl.replace(/^http:\/\/localhost:3000\/url\?q=/, '');
-        // cleanUrl = cleanUrl.replace(/^http:\/\/localhost:3000/, '');
-        console.log("Cleaned Search URL: " + cleanUrl);
-        console.log("--------------------");
-        return cleanUrl;
-    } 
-    
-    cleanRedirectUrl(urlString) {
-        console.log("--------------------");
-        console.log("Cleaning Redirect URL: " + urlString);
-        let baseUrl = this.state.url;
-        console.log("Current URL: " + baseUrl);
-        const redirectParts = this.splitUrl(urlString);
-        const urlParts = this.splitUrl(baseUrl);
-
-        for (let redirectID = 1; redirectID < redirectParts.length; redirectID++) {
-            for (let urlID = 1; urlID < urlParts.length; urlID++) {
-                if (redirectParts[redirectID] === urlParts[urlID]) {
-                    const baseUrlParts = urlParts.slice(0, urlID);
-                    console.log("Base URL Parts: " + baseUrlParts);
-                    baseUrl = baseUrlParts.join('/');
-                    baseUrl += urlString;
-                    console.log("Cleaned Redirect URL: " + baseUrl);
-                    console.log("--------------------");
-                    return baseUrl;      
-                }
-            }
-        }
-
-        // that means we didn't find a match, so lets just append the redirect url to the current url
-        baseUrl += urlString;
-        console.log("Cleaned Redirect URL: " + baseUrl);
-        console.log("--------------------");
-        return baseUrl;
-
-        // throw new Error('Failed to clean redirect URL');  
-    }
-
-
     handleDocumentClick = (event) => {
         // Traverse up to find the closest anchor tag if the target is not the anchor itself
         let element = event.target;
@@ -144,24 +52,9 @@ class ContentFetcher extends Component {
         // If an anchor tag was clicked, prevent the default action
         if (element && element.tagName === 'A') {
             event.preventDefault();
-            let newUrl = element.getAttribute('href');
-            // console.log("Link clicked:",newUrl);
-            // console.log(this.splitUrl(newUrl));
-            if (this.isSearchUrl(newUrl)) {
-                newUrl = this.cleanSearchUrl(newUrl);
-                console.log("Link clicked:",newUrl);
-            }
-            else if (this.isRedirectUrl(newUrl)) {
-                newUrl = this.cleanRedirectUrl(newUrl);
-                console.log("Link clicked:",newUrl);
-            }
-
-
-            this.setState({ url: newUrl }, () => {
-                this.fetchContent(newUrl);
-            });
-
-        //   this.setState({ url: newUrl });
+            let clickedString = element.getAttribute('href');
+            console.log("*(Raw User clicked): ", clickedString);
+            this.setPageContent(clickedString);
         }
     };
 
@@ -178,7 +71,7 @@ class ContentFetcher extends Component {
                 url: prevState.searchHistory[newHistoryIndex] || '',
             };
         }, () => {
-            this.fetchContent(this.state.url);
+            this.setPageContent(this.state.url);
         });
     };
 
@@ -190,47 +83,80 @@ class ContentFetcher extends Component {
                 url: prevState.searchHistory[newHistoryIndex] || '',
             };
         }, () => {
-            this.fetchContent(this.state.url);
+            this.setPageContent(this.state.url);
         });
     };
 
+    handleKeyDown = (event) => {
+        if (event.key === 'Enter') {
+            this.setPageContent(this.state.url);
+        }
+    };
 
-    fetchContent = async (fetchUrl) => {
+
+    setPageContent = async (inputString) => {
         try {
+            let cleanedURL = urlHelpers.getCleanURL(inputString);
 
-            // Set up dat url
-            let fullUrl = fetchUrl;
-            if (!this.isUrl(fetchUrl)) {
-                fullUrl = `https://www.google.com/search?q=${fetchUrl}`;
-            }
-            
-            // let fullUrl = fetchUrl.startsWith('https') ? fetchUrl : `https://www.google.com/search?q=${fetchUrl}`;
-            console.log("[NEW SEARCH] " + fullUrl);
 
-            // Store dat url in da search history
             this.setState(
-                prevState => ({searchHistory: [...prevState.searchHistory, fullUrl]})
+                prevState => ({searchHistory: [...prevState.searchHistory, cleanedURL]}),
             );
+            this.state.url = cleanedURL;
 
             const response = await fetch(
                 'http://localhost:3001/proxy', 
                 {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ url: fullUrl }),
+                    body: JSON.stringify({ url: cleanedURL }),
                 }
             );
-            
-            // Print out the search history
-            console.log("Search History: ");
-            console.log(this.state.searchHistory);
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            // Retrieve the text of the response immediately
             const data = await response.text();
-            
+
+            try {
+                data  = <iframe src={cleanedURL} frameborder="0" style={{ width: '100%', height: '100vh' }} />
+                console.log("IFRAME ALLOWED for " + cleanedURL);
+                // this.setState({ content: data });
+            }
+            catch (error) {
+                // this.setState({ content: data });
+                console.log("IFRAME NOT ALLOWED for " + cleanedURL);
+            }
+
+
             this.setState({ content: data });
+
+            // // Check for the custom X-IFrame-Allowed header in the response
+            // // const iframeAllowed = response.headers.get('X-IFrame-Allowed') === 'true';
+            // // Replace your existing iframe check with this new check
+            // const iframeEmbeddable = response.headers.get('X-Content-Embeddable') === 'true';
+            // if (iframeEmbeddable) {
+            //     // If embedding the content in an iframe is allowed
+            //     console.log("IFRAME ALLOWED for " + cleanedURL);
+            //     this.setState({ 
+            //         content: `<iframe src="${cleanedURL}" frameborder="0" style="width:100%;height:100vh;"></iframe>` 
+            //     });
+            // } else {
+            //     console.log("IFRAME NOT ALLOWED for " + cleanedURL);
+            //     // If not, display the fetched HTML content
+            //     this.setState({ content: data });
+            // }            
+            
+            // Print out the search history
+            console.log("|||| Search History ||||");
+            console.log(this.state.searchHistory);
+            console.log("--------------------");
+            console.log("Current State URL: " + this.state.url);
+            console.log("--------------------");
+            
+            // this.setState({ content: data });
 
         } 
         catch (error) {
@@ -238,11 +164,6 @@ class ContentFetcher extends Component {
         } 
     };
 
-    handleKeyDown = (event) => {
-        if (event.key === 'Enter') {
-            this.fetchContent(this.state.url);
-        }
-    };
 
 
     render() {
@@ -272,13 +193,16 @@ class ContentFetcher extends Component {
                     />
                     {/* Wrap buttons in a div to prevent them from growing */}
                     <div style={{ display: 'flex', flexShrink: 0 }}>
-                        <button onClick={() => this.fetchContent(url)}>Fetch Content</button>
+                        <button onClick={() => this.setPageContent(url)}>Fetch Content</button>
                         <button onClick={this.goBack}>Back</button>
                         <button onClick={this.goForward}>Forward</button>
-                        <button onClick={() => this.fetchContent(url)}>Refresh</button>
+                        <button onClick={() => this.setPageContent(url)}>Refresh</button>
                     </div>
                 </div>
-                <div id="content-display" style={{ paddingTop: '50px' }} dangerouslySetInnerHTML={{ __html: content }} />
+                    <div> <iframe src={url} frameborder="0" style={{ width: '100%', height: '100vh' }} /> </div>
+                    <div> URL:  {url}</div>
+                    <div id="content-display" style={{ paddingTop: '50px' }} dangerouslySetInnerHTML={{ __html: content }} />
+                {/* <div> {url} </div> */}
             </div>
         );
     }
